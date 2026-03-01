@@ -1,3 +1,11 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "baserow": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://baserow.speicher.family/mcp/VeuOVWynzXt1vcvfYKZbtkSCH7D5vpdZ/sse"
+      ]
+    }
+  }
 }
