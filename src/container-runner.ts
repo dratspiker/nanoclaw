@@ -144,6 +144,21 @@ function buildVolumeMounts(
       fs.cpSync(srcDir, dstDir, { recursive: true });
     }
   }
+
+  // Sync host-side Claude Code skills (e.g. chezmoi-deployed ~/.claude/skills/)
+  const hostSkillsSrc =
+    process.env.HOST_SKILLS_DIR || path.join(process.cwd(), 'host-skills');
+  if (fs.existsSync(hostSkillsSrc)) {
+    for (const skillDir of fs.readdirSync(hostSkillsSrc)) {
+      const srcDir = path.join(hostSkillsSrc, skillDir);
+      if (!fs.statSync(srcDir).isDirectory()) continue;
+      const dstDir = path.join(skillsDst, skillDir);
+      // Don't overwrite NanoClaw's built-in skills
+      if (!fs.existsSync(dstDir)) {
+        fs.cpSync(srcDir, dstDir, { recursive: true });
+      }
+    }
+  }
   mounts.push({
     hostPath: groupSessionsDir,
     containerPath: '/home/node/.claude',
