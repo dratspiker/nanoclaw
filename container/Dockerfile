@@ -24,6 +24,9 @@ RUN npm run build
 # Create workspace directories
 RUN mkdir -p /workspace/group /workspace/global /workspace/extra /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input
 
+# Initialize git repo in workspace so Claude Agent SDK doesn't log "fatal: not in a git directory"
+RUN cd /workspace/group && git init && git commit --allow-empty -m "init"
+
 # Create entrypoint script
 # Container input (prompt, group info) is passed via stdin JSON.
 # Credentials are injected by the host's credential proxy — never passed here.
