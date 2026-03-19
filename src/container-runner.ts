@@ -239,7 +239,7 @@ function buildContainerArgs(
   }
 
   // Forward tool credentials from orchestrator env to agent containers
-  const FORWARDED_ENV = ['TODOIST_TOKEN', 'GH_TOKEN'];
+  const FORWARDED_ENV = ['TODOIST_TOKEN', 'TODOIST_API_TOKEN', 'GH_TOKEN'];
   for (const key of FORWARDED_ENV) {
     if (process.env[key]) {
       args.push('-e', `${key}=${process.env[key]}`);
