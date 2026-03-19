@@ -238,6 +238,14 @@ function buildContainerArgs(
     args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
   }
 
+  // Forward tool credentials from orchestrator env to agent containers
+  const FORWARDED_ENV = ['TODOIST_TOKEN', 'GH_TOKEN'];
+  for (const key of FORWARDED_ENV) {
+    if (process.env[key]) {
+      args.push('-e', `${key}=${process.env[key]}`);
+    }
+  }
+
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());
 
