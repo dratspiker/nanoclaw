@@ -6,6 +6,13 @@ import { Api, Bot } from 'grammy';
 import { ASSISTANT_NAME, GROUPS_DIR, TRIGGER_PATTERN } from '../config.js';
 import { readEnvFile } from '../env.js';
 import { logger } from '../logger.js';
+import {
+  handleBriefing,
+  handleCapture,
+  handleEnergy,
+  handleStatus,
+  handleSync,
+} from '../commands.js';
 import { registerChannel, ChannelOpts } from './registry.js';
 import {
   Channel,
@@ -82,9 +89,118 @@ export class TelegramChannel implements Channel {
       ctx.reply(`${ASSISTANT_NAME} is online.`);
     });
 
+    // --- Productivity commands (Issue #38) ---
+
+    // Command to trigger personal vault sync
+    this.bot.command('sync', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      if (!this.opts.registeredGroups()[chatJid]) {
+        return ctx.reply(
+          '⚠️ Access denied. This command is only available in registered groups.',
+        );
+      }
+
+      await ctx.reply('🔄 Triggering personal sync...');
+      const result = await handleSync();
+      if (result.success) {
+        ctx.reply(
+          `✅ Sync triggered successfully:\n\`\`\`\n${result.output}\n\`\`\``,
+          { parse_mode: 'Markdown' },
+        );
+      } else {
+        ctx.reply(
+          `❌ Sync failed:\n\`\`\`\n${result.error || result.output}\n\`\`\``,
+          { parse_mode: 'Markdown' },
+        );
+      }
+    });
+
+    // Command to get daily briefing
+    this.bot.command('briefing', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      if (!this.opts.registeredGroups()[chatJid]) {
+        return ctx.reply('⚠️ Access denied.');
+      }
+
+      await ctx.reply('📋 Generating your briefing...');
+      const result = await handleBriefing();
+      if (result.success) {
+        ctx.reply(result.output);
+      } else {
+        ctx.reply(`❌ Briefing failed:\n${result.error || result.output}`);
+      }
+    });
+
+    // Command for smart capture
+    this.bot.command('capture', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      if (!this.opts.registeredGroups()[chatJid]) {
+        return ctx.reply('⚠️ Access denied.');
+      }
+
+      const text = ctx.match;
+      if (!text) {
+        return ctx.reply(
+          'Usage: `/capture <item>`\nExample: `/capture buy milk`',
+          { parse_mode: 'Markdown' },
+        );
+      }
+
+      await ctx.reply(`📝 Capturing: "${text}"...`);
+      const result = await handleCapture(text);
+      if (result.success) {
+        ctx.reply(`✅ ${result.output}`);
+      } else {
+        ctx.reply(`❌ Capture failed:\n${result.error || result.output}`);
+      }
+    });
+
+    // Command for homelab status check
+    this.bot.command('status', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      if (!this.opts.registeredGroups()[chatJid]) {
+        return ctx.reply('⚠️ Access denied.');
+      }
+
+      await ctx.reply('🔍 Checking homelab status...');
+      const result = await handleStatus();
+      if (result.success) {
+        ctx.reply(result.output);
+      } else {
+        ctx.reply(`❌ Status check failed:\n${result.error || result.output}`);
+      }
+    });
+
+    // Command for energy-aware task suggestions
+    this.bot.command('energy', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      if (!this.opts.registeredGroups()[chatJid]) {
+        return ctx.reply('⚠️ Access denied.');
+      }
+
+      const level = ctx.match || 'low';
+      await ctx.reply(`⚡ Finding ${level} energy tasks...`);
+      const result = await handleEnergy(level);
+      if (result.success) {
+        ctx.reply(result.output, { parse_mode: 'Markdown' });
+      } else {
+        ctx.reply(
+          `❌ Failed to get suggestions:\n${result.error || result.output}`,
+        );
+      }
+    });
+
     // Telegram bot commands handled above — skip them in the general handler
     // so they don't also get stored as messages. All other /commands flow through.
-    const TELEGRAM_BOT_COMMANDS = new Set(['chatid', 'ping']);
+    const TELEGRAM_BOT_COMMANDS = new Set([
+      'chatid',
+      'ping',
+      'sync',
+      'briefing',
+      'capture',
+      'status',
+      'energy',
+    ]);
 
     this.bot.on('message:text', async (ctx) => {
       if (ctx.message.text.startsWith('/')) {

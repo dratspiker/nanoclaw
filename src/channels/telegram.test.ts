@@ -24,6 +24,15 @@ vi.mock('../logger.js', () => ({
   },
 }));
 
+// Mock commands
+vi.mock('../commands.js', () => ({
+  handleSync: vi.fn().mockResolvedValue({ success: true, output: 'Sync output' }),
+  handleStatus: vi.fn().mockResolvedValue({ success: true, output: 'Status output' }),
+  handleBriefing: vi.fn().mockResolvedValue({ success: true, output: 'Briefing output' }),
+  handleCapture: vi.fn().mockResolvedValue({ success: true, output: 'Capture output' }),
+  handleEnergy: vi.fn().mockResolvedValue({ success: true, output: 'Energy output' }),
+}));
+
 // --- Grammy mock ---
 
 type Handler = (...args: any[]) => any;
@@ -564,7 +573,7 @@ describe('TelegramChannel', () => {
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Photo]' }),
+        expect.objectContaining({ content: '[Photo (download failed)]' }),
       );
     });
 
@@ -578,7 +587,9 @@ describe('TelegramChannel', () => {
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Photo] Look at this' }),
+        expect.objectContaining({
+          content: '[Photo (download failed)] Look at this Look at this',
+        }),
       );
     });
 
@@ -636,7 +647,7 @@ describe('TelegramChannel', () => {
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Document: report.pdf]' }),
+        expect.objectContaining({ content: '[Document: report.pdf (download failed)]' }),
       );
     });
 
@@ -650,7 +661,7 @@ describe('TelegramChannel', () => {
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Document: file]' }),
+        expect.objectContaining({ content: '[Document: file (download failed)]' }),
       );
     });
 
@@ -935,6 +946,144 @@ describe('TelegramChannel', () => {
       await handler(ctx);
 
       expect(ctx.reply).toHaveBeenCalledWith('Andy is online.');
+    });
+
+    it('/sync triggers sync and replies with output', async () => {
+      const opts = createTestOpts();
+      const channel = new TelegramChannel('test-token', opts);
+      await channel.connect();
+
+      const handler = currentBot().commandHandlers.get('sync')!;
+      const ctx = {
+        chat: { id: 100200300 },
+        reply: vi.fn().mockResolvedValue(undefined),
+      };
+
+      await handler(ctx);
+
+      const { handleSync } = await import('../commands.js');
+      expect(handleSync).toHaveBeenCalled();
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Sync output'),
+        expect.any(Object),
+      );
+    });
+
+    it('/sync denies access for unregistered groups', async () => {
+      const opts = createTestOpts();
+      const channel = new TelegramChannel('test-token', opts);
+      await channel.connect();
+
+      const handler = currentBot().commandHandlers.get('sync')!;
+      const ctx = {
+        chat: { id: 999999 },
+        reply: vi.fn(),
+      };
+
+      await handler(ctx);
+
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Access denied'),
+      );
+    });
+
+    it('/status replies with status output', async () => {
+      const opts = createTestOpts();
+      const channel = new TelegramChannel('test-token', opts);
+      await channel.connect();
+
+      const handler = currentBot().commandHandlers.get('status')!;
+      const ctx = {
+        chat: { id: 100200300 },
+        reply: vi.fn(),
+      };
+
+      await handler(ctx);
+
+      const { handleStatus } = await import('../commands.js');
+      expect(handleStatus).toHaveBeenCalled();
+      expect(ctx.reply).toHaveBeenCalledWith('Status output');
+    });
+
+    it('/briefing replies with briefing output', async () => {
+      const opts = createTestOpts();
+      const channel = new TelegramChannel('test-token', opts);
+      await channel.connect();
+
+      const handler = currentBot().commandHandlers.get('briefing')!;
+      const ctx = {
+        chat: { id: 100200300 },
+        reply: vi.fn(),
+      };
+
+      await handler(ctx);
+
+      const { handleBriefing } = await import('../commands.js');
+      expect(handleBriefing).toHaveBeenCalled();
+      expect(ctx.reply).toHaveBeenCalledWith('Briefing output');
+    });
+
+    it('/capture routes item and replies with success', async () => {
+      const opts = createTestOpts();
+      const channel = new TelegramChannel('test-token', opts);
+      await channel.connect();
+
+      const handler = currentBot().commandHandlers.get('capture')!;
+      const ctx = {
+        chat: { id: 100200300 },
+        match: 'test item',
+        reply: vi.fn(),
+      };
+
+      await handler(ctx);
+
+      const { handleCapture } = await import('../commands.js');
+      expect(handleCapture).toHaveBeenCalledWith('test item');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Capture output'),
+      );
+    });
+
+    it('/capture requires text', async () => {
+      const opts = createTestOpts();
+      const channel = new TelegramChannel('test-token', opts);
+      await channel.connect();
+
+      const handler = currentBot().commandHandlers.get('capture')!;
+      const ctx = {
+        chat: { id: 100200300 },
+        match: '',
+        reply: vi.fn(),
+      };
+
+      await handler(ctx);
+
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Usage:'),
+        expect.any(Object),
+      );
+    });
+
+    it('/energy replies with energy tasks', async () => {
+      const opts = createTestOpts();
+      const channel = new TelegramChannel('test-token', opts);
+      await channel.connect();
+
+      const handler = currentBot().commandHandlers.get('energy')!;
+      const ctx = {
+        chat: { id: 100200300 },
+        match: 'high',
+        reply: vi.fn(),
+      };
+
+      await handler(ctx);
+
+      const { handleEnergy } = await import('../commands.js');
+      expect(handleEnergy).toHaveBeenCalledWith('high');
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Energy output'),
+        expect.any(Object),
+      );
     });
   });
 
