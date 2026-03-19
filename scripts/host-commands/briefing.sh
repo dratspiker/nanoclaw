@@ -4,11 +4,6 @@
 
 set -euo pipefail
 
-# Since NanoClaw runs in a sibling container setup with access to docker.sock,
-# we can use another container that has SSH access to lucille5, 
-# or run it via Prefect if a briefing flow is defined.
-
-# For now, let's try running it via the homelab-prefect-worker-1 which already has ~/.ssh mounted.
-# We'll run the python script directly on lucille5 via SSH.
-
-docker exec -t homelab-prefect-worker-1 ssh -o BatchMode=yes lucille5 "cd ~/git/obsidian-tools && .venv/bin/python src/personal/briefing.py"
+# Run briefing via Prefect worker (has SSH access to lucille5).
+# Source heartbeat .env on lucille5 for API tokens (non-interactive SSH has no login shell).
+docker exec -t homelab-prefect-worker-1 ssh -o BatchMode=yes lucille5 'export PATH=/opt/homebrew/bin:$PATH && set -a && source ~/.config/heartbeat/.env && set +a && cd ~/git/obsidian-tools && .venv/bin/python src/personal/briefing.py'
