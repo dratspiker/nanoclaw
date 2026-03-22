@@ -424,6 +424,10 @@ async function runQuery(
             NANOCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
           },
         },
+        baserow: {
+          command: 'npx',
+          args: ['-y', 'mcp-remote', 'https://baserow.speicher.family/mcp/VeuOVWynzXt1vcvfYKZbtkSCH7D5vpdZ/sse'],
+        },
       },
       hooks: {
         PreCompact: [{ hooks: [createPreCompactHook(containerInput.assistantName)] }],
