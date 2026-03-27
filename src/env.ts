@@ -38,5 +38,14 @@ export function readEnvFile(keys: string[]): Record<string, string> {
     if (value) result[key] = value;
   }
 
+  // Fall back to process.env for keys not found in .env file.
+  // This supports Docker deployments where secrets are injected
+  // via compose environment variables rather than a .env file.
+  for (const key of keys) {
+    if (!result[key] && process.env[key]) {
+      result[key] = process.env[key]!;
+    }
+  }
+
   return result;
 }
