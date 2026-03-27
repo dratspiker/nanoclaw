@@ -13,6 +13,7 @@ import {
   CREDENTIAL_PROXY_PORT,
   DATA_DIR,
   GROUPS_DIR,
+  HOST_PROJECT_ROOT,
   IDLE_TIMEOUT,
   TIMEZONE,
 } from './config.js';
@@ -32,6 +33,47 @@ import { RegisteredGroup } from './types.js';
 // Sentinel markers for robust output parsing (must match agent-runner)
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
+
+/**
+ * Translate a container-internal path to a host path for Docker bind mounts.
+ *
+ * When running inside Docker, process.cwd() returns the container path (e.g.
+ * /app) but Docker daemon needs host paths. The compose file mounts sibling
+ * directories (data, groups, store) as overlays on /app/*, so we must handle
+ * those separately: /app/data → HOST_PROJECT_ROOT/../data, etc.
+ *
+ * When HOST_PROJECT_ROOT is not set (local dev), paths pass through unchanged.
+ */
+function toHostPath(containerPath: string): string {
+  if (!HOST_PROJECT_ROOT) return containerPath;
+
+  const projectRoot = process.cwd();
+  // The compose file mounts sibling dirs (data/, groups/, store/) on top of
+  // subdirectories of /app. On the host these are siblings of the repo dir,
+  // not children. Translate the most specific prefixes first.
+  const overlayDirs = ['data', 'groups', 'store'];
+  for (const dir of overlayDirs) {
+    const containerPrefix = path.join(projectRoot, dir);
+    if (
+      containerPath === containerPrefix ||
+      containerPath.startsWith(containerPrefix + path.sep)
+    ) {
+      const hostBase = path.join(path.dirname(HOST_PROJECT_ROOT), dir);
+      return containerPath.replace(containerPrefix, hostBase);
+    }
+  }
+
+  // Everything else under projectRoot maps to HOST_PROJECT_ROOT
+  if (
+    containerPath === projectRoot ||
+    containerPath.startsWith(projectRoot + path.sep)
+  ) {
+    return containerPath.replace(projectRoot, HOST_PROJECT_ROOT);
+  }
+
+  // Paths outside the project root (e.g. /dev/null) pass through
+  return containerPath;
+}
 
 export interface ContainerInput {
   prompt: string;
@@ -239,7 +281,12 @@ function buildContainerArgs(
   }
 
   // Forward tool credentials from orchestrator env to agent containers
-  const FORWARDED_ENV = ['TODOIST_TOKEN', 'TODOIST_API_TOKEN', 'TODOIST_API_TOKEN_PERSONAL', 'GH_TOKEN'];
+  const FORWARDED_ENV = [
+    'TODOIST_TOKEN',
+    'TODOIST_API_TOKEN',
+    'TODOIST_API_TOKEN_PERSONAL',
+    'GH_TOKEN',
+  ];
   for (const key of FORWARDED_ENV) {
     if (process.env[key]) {
       args.push('-e', `${key}=${process.env[key]}`);
@@ -260,10 +307,11 @@ function buildContainerArgs(
   }
 
   for (const mount of mounts) {
+    const hostPath = toHostPath(mount.hostPath);
     if (mount.readonly) {
-      args.push(...readonlyMountArgs(mount.hostPath, mount.containerPath));
+      args.push(...readonlyMountArgs(hostPath, mount.containerPath));
     } else {
-      args.push('-v', `${mount.hostPath}:${mount.containerPath}`);
+      args.push('-v', `${hostPath}:${mount.containerPath}`);
     }
   }
 
@@ -292,9 +340,10 @@ export async function runContainerAgent(
     {
       group: group.name,
       containerName,
+      hostProjectRoot: HOST_PROJECT_ROOT || '(not set — local dev)',
       mounts: mounts.map(
         (m) =>
-          `${m.hostPath} -> ${m.containerPath}${m.readonly ? ' (ro)' : ''}`,
+          `${m.hostPath} -> ${toHostPath(m.hostPath)} -> ${m.containerPath}${m.readonly ? ' (ro)' : ''}`,
       ),
       containerArgs: containerArgs.join(' '),
     },

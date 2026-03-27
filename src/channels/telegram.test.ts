@@ -26,11 +26,21 @@ vi.mock('../logger.js', () => ({
 
 // Mock commands
 vi.mock('../commands.js', () => ({
-  handleSync: vi.fn().mockResolvedValue({ success: true, output: 'Sync output' }),
-  handleStatus: vi.fn().mockResolvedValue({ success: true, output: 'Status output' }),
-  handleBriefing: vi.fn().mockResolvedValue({ success: true, output: 'Briefing output' }),
-  handleCapture: vi.fn().mockResolvedValue({ success: true, output: 'Capture output' }),
-  handleEnergy: vi.fn().mockResolvedValue({ success: true, output: 'Energy output' }),
+  handleSync: vi
+    .fn()
+    .mockResolvedValue({ success: true, output: 'Sync output' }),
+  handleStatus: vi
+    .fn()
+    .mockResolvedValue({ success: true, output: 'Status output' }),
+  handleBriefing: vi
+    .fn()
+    .mockResolvedValue({ success: true, output: 'Briefing output' }),
+  handleCapture: vi
+    .fn()
+    .mockResolvedValue({ success: true, output: 'Capture output' }),
+  handleEnergy: vi
+    .fn()
+    .mockResolvedValue({ success: true, output: 'Energy output' }),
 }));
 
 // --- Grammy mock ---
@@ -647,7 +657,9 @@ describe('TelegramChannel', () => {
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Document: report.pdf (download failed)]' }),
+        expect.objectContaining({
+          content: '[Document: report.pdf (download failed)]',
+        }),
       );
     });
 
@@ -661,7 +673,9 @@ describe('TelegramChannel', () => {
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'tg:100200300',
-        expect.objectContaining({ content: '[Document: file (download failed)]' }),
+        expect.objectContaining({
+          content: '[Document: file (download failed)]',
+        }),
       );
     });
 

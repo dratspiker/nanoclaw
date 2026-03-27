@@ -20,6 +20,12 @@ export const SCHEDULER_POLL_INTERVAL = 60000;
 const PROJECT_ROOT = process.cwd();
 const HOME_DIR = process.env.HOME || os.homedir();
 
+// Docker-in-Docker path translation: when the orchestrator runs inside a
+// container, process.cwd() returns the container-internal path (e.g. /app).
+// Docker daemon runs on the host, so bind mounts must use host paths.
+// HOST_PROJECT_ROOT maps the container's PROJECT_ROOT to the host filesystem.
+export const HOST_PROJECT_ROOT = process.env.HOST_PROJECT_ROOT || '';
+
 // Mount security: allowlist stored OUTSIDE project root, never mounted into containers
 export const MOUNT_ALLOWLIST_PATH = path.join(
   HOME_DIR,

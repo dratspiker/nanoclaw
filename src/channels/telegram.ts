@@ -342,7 +342,10 @@ export class TelegramChannel implements Channel {
         fs.writeFileSync(localPath, buffer);
 
         const containerPath = `/workspace/group/images/${filename}`;
-        logger.info({ chatJid, filename, size: buffer.length }, 'Telegram photo downloaded');
+        logger.info(
+          { chatJid, filename, size: buffer.length },
+          'Telegram photo downloaded',
+        );
         storeNonText(ctx, `[Photo: ${containerPath}]${caption}`);
       } catch (err) {
         logger.error({ chatJid, err }, 'Failed to download Telegram photo');
@@ -376,7 +379,10 @@ export class TelegramChannel implements Channel {
         fs.writeFileSync(localPath, buffer);
 
         const containerPath = `/workspace/group/documents/${filename}`;
-        logger.info({ chatJid, filename, size: buffer.length }, 'Telegram document downloaded');
+        logger.info(
+          { chatJid, filename, size: buffer.length },
+          'Telegram document downloaded',
+        );
         storeNonText(ctx, `[Document: ${containerPath}]${caption}`);
       } catch (err) {
         logger.error({ chatJid, err }, 'Failed to download Telegram document');
