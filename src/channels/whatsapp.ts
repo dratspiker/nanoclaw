@@ -75,6 +75,8 @@ export class WhatsAppChannel implements Channel {
   private botLidUser?: string;
   /** Resolve the initial connect() once the first successful open happens. */
   private pendingFirstOpen?: () => void;
+  /** Set when auth is missing — prevents reconnect loop. */
+  private authMissing = false;
 
   private opts: WhatsAppChannelOpts;
 
@@ -153,6 +155,7 @@ export class WhatsAppChannel implements Channel {
         );
         // Gracefully disconnect instead of crashing the entire orchestrator.
         // This allows other channels (e.g. Telegram) to keep running.
+        this.authMissing = true;
         this.sock.end(undefined);
       }
 
@@ -161,7 +164,8 @@ export class WhatsAppChannel implements Channel {
         const reason = (
           lastDisconnect?.error as { output?: { statusCode?: number } }
         )?.output?.statusCode;
-        const shouldReconnect = reason !== DisconnectReason.loggedOut;
+        const shouldReconnect =
+          reason !== DisconnectReason.loggedOut && !this.authMissing;
         logger.info(
           {
             reason,
