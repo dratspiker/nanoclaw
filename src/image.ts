@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
-const MAX_DIMENSION = 1024;
+const MAX_DIMENSION = 2048;
 const IMAGE_REF_PATTERN = /\[Image: (attachments\/[^\]]+)\]/g;
 
 export interface ProcessedImage {
@@ -27,7 +27,7 @@ export async function processImage(
       fit: 'inside',
       withoutEnlargement: true,
     })
-    .jpeg({ quality: 85 })
+    .jpeg({ quality: 90 })
     .toBuffer();
 
   const attachDir = path.join(groupDir, 'attachments');
