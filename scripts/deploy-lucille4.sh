@@ -66,6 +66,12 @@ if [ "$session_count" -gt "0" ]; then
     run_remote "docker stop nanoclaw >/dev/null 2>&1 || true; sudo sqlite3 ${DB_PATH} 'DELETE FROM sessions;'"
 fi
 
+# --- Sync group CLAUDE.md (host groups dir shadows repo copy) ---
+step "Syncing group CLAUDE.md"
+run_remote "cp ${REPO_DIR}/groups/main/CLAUDE.md ${NANOCLAW_DIR}/groups/main/CLAUDE.md 2>/dev/null" && \
+    printf "${GREEN}    Synced groups/main/CLAUDE.md${RESET}\n" || \
+    warn "No CLAUDE.md to sync"
+
 # --- Rebuild agent container image (optional) ---
 if $REBUILD; then
     step "Rebuilding agent container image"
@@ -106,8 +112,8 @@ else
 fi
 
 # --- Check for errors ---
-errors=$(run_remote "docker logs nanoclaw --tail 30 2>&1 | grep -c 'ERROR'" || echo "0")
-if [ "$errors" -gt "0" ]; then
+errors=$(run_remote "docker logs nanoclaw --tail 30 2>&1 | grep -c 'ERROR' || true")
+if [ "${errors:-0}" -gt "0" ] 2>/dev/null; then
     warn "${errors} error(s) in recent logs — check with: ssh lucille4 docker logs nanoclaw --tail 50"
 fi
 
