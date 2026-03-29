@@ -344,11 +344,17 @@ export class TelegramChannel implements Channel {
           );
           storeNonText(ctx, processed.content);
         } else {
-          storeNonText(ctx, `[Photo (processing failed)]${caption ? ` ${caption}` : ''}`);
+          storeNonText(
+            ctx,
+            `[Photo (processing failed)]${caption ? ` ${caption}` : ''}`,
+          );
         }
       } catch (err) {
         logger.error({ chatJid, err }, 'Failed to download Telegram photo');
-        storeNonText(ctx, `[Photo (download failed)]${caption ? ` ${caption}` : ''}`);
+        storeNonText(
+          ctx,
+          `[Photo (download failed)]${caption ? ` ${caption}` : ''}`,
+        );
       }
     });
     this.bot.on('message:video', (ctx) => storeNonText(ctx, '[Video]'));
