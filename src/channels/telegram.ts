@@ -5,6 +5,7 @@ import { Api, Bot } from 'grammy';
 
 import { ASSISTANT_NAME, GROUPS_DIR, TRIGGER_PATTERN } from '../config.js';
 import { readEnvFile } from '../env.js';
+import { processImage } from '../image.js';
 import { logger } from '../logger.js';
 import {
   handleBriefing,
@@ -322,34 +323,32 @@ export class TelegramChannel implements Channel {
       const group = this.opts.registeredGroups()[chatJid];
       if (!group) return;
 
-      const caption = ctx.message.caption ? ` ${ctx.message.caption}` : '';
+      const caption = ctx.message.caption || '';
 
       try {
         const photos = ctx.message.photo;
         const largest = photos[photos.length - 1];
         const file = await ctx.api.getFile(largest.file_id);
         const fileUrl = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
-        const ext = path.extname(file.file_path || '.jpg') || '.jpg';
-        const filename = `photo_${ctx.message.message_id}${ext}`;
-
-        const imagesDir = path.join(GROUPS_DIR, group.folder, 'images');
-        fs.mkdirSync(imagesDir, { recursive: true });
-        const localPath = path.join(imagesDir, filename);
 
         const response = await fetch(fileUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const buffer = Buffer.from(await response.arrayBuffer());
-        fs.writeFileSync(localPath, buffer);
 
-        const containerPath = `/workspace/group/images/${filename}`;
-        logger.info(
-          { chatJid, filename, size: buffer.length },
-          'Telegram photo downloaded',
-        );
-        storeNonText(ctx, `[Photo: ${containerPath}]${caption}`);
+        const groupDir = path.join(GROUPS_DIR, group.folder);
+        const processed = await processImage(buffer, groupDir, caption);
+        if (processed) {
+          logger.info(
+            { chatJid, path: processed.relativePath, size: buffer.length },
+            'Telegram photo processed for vision',
+          );
+          storeNonText(ctx, processed.content);
+        } else {
+          storeNonText(ctx, `[Photo (processing failed)]${caption ? ` ${caption}` : ''}`);
+        }
       } catch (err) {
         logger.error({ chatJid, err }, 'Failed to download Telegram photo');
-        storeNonText(ctx, `[Photo (download failed)]${caption}`);
+        storeNonText(ctx, `[Photo (download failed)]${caption ? ` ${caption}` : ''}`);
       }
     });
     this.bot.on('message:video', (ctx) => storeNonText(ctx, '[Video]'));
