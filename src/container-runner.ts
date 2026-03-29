@@ -165,6 +165,10 @@ function buildVolumeMounts(
     '.claude',
   );
   fs.mkdirSync(groupSessionsDir, { recursive: true });
+  // Ensure the node user (UID 1000) can write to .claude/ inside the container
+  try {
+    fs.chmodSync(groupSessionsDir, 0o777);
+  } catch { /* ignore on non-root hosts */ }
   const settingsFile = path.join(groupSessionsDir, 'settings.json');
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(
