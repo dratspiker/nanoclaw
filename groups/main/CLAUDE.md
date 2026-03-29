@@ -36,23 +36,31 @@ Text inside `<internal>` tags is logged but not sent to the user. If you've alre
 
 When working as a sub-agent or teammate, only use `send_message` if instructed to by the main agent.
 
-## Memory (Baserow-backed)
+## Memory (SQLite)
 
-You have persistent memory via a Baserow table called "Barry Memory" in the "Barry" database. Use the `mcp__baserow__*` tools to read and write memories.
+You have persistent memory at `/workspace/group/memory.db`. This file persists across sessions.
 
-### Table schema
+### Setup
 
-If the table doesn't exist yet, create it with these fields:
-- `key` (text) — short identifier, e.g. "user_preferences", "matt_schedule", "format_rules"
-- `category` (single select) — one of: `preference`, `fact`, `context`, `instruction`
-- `content` (long text) — the actual memory content
-- `updated` (date, include time) — when this was last updated
+On first use, create the table if it doesn't exist:
+
+```bash
+sqlite3 /workspace/group/memory.db "CREATE TABLE IF NOT EXISTS memory (
+  key TEXT PRIMARY KEY,
+  category TEXT NOT NULL CHECK(category IN ('preference','fact','context','instruction')),
+  content TEXT NOT NULL,
+  updated TEXT NOT NULL DEFAULT (datetime('now'))
+);"
+```
 
 ### When to recall
 
-At the **start of every conversation**, search the memory table for relevant entries:
-- Always load entries with category `preference` or `instruction`
-- Search for entries related to the topic the user is asking about
+At the **start of every conversation**, load relevant memories:
+
+```bash
+sqlite3 /workspace/group/memory.db "SELECT key, content FROM memory WHERE category IN ('preference','instruction');"
+sqlite3 /workspace/group/memory.db "SELECT key, content FROM memory WHERE content LIKE '%keyword%';"
+```
 
 ### When to save
 
@@ -64,13 +72,15 @@ Save a memory when:
 
 ### How to save
 
-- Check if a memory with that `key` already exists — update it rather than creating duplicates
-- Keep entries concise — one concept per row
-- Set `updated` to the current timestamp
+Use `INSERT OR REPLACE` to upsert — avoids duplicates automatically:
 
-### Local file memory
+```bash
+sqlite3 /workspace/group/memory.db "INSERT OR REPLACE INTO memory (key, category, content, updated) VALUES ('inventory_format', 'preference', 'Use compact format: strain · weight per line', datetime('now'));"
+```
 
-The `conversations/` folder also contains searchable history of past conversations. Use this for detailed recall of specific past interactions when Baserow doesn't have what you need.
+### Conversations
+
+The `conversations/` folder also contains searchable history of past conversations. Use this for detailed recall of specific past interactions when the memory DB doesn't have what you need.
 
 ## Telegram Formatting
 

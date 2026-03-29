@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y \
     libdrm2 \
     libxshmfence1 \
     poppler-utils \
+    sqlite3 \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
