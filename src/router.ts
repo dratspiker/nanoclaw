@@ -1,4 +1,5 @@
 import { Channel, NewMessage } from './types.js';
+import { parseTextStyles, ChannelType } from './text-styles.js';
 import { formatLocalTime } from './timezone.js';
 
 export function escapeXml(s: string): string {
@@ -28,9 +29,12 @@ export function stripInternalTags(text: string): string {
   return text.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
 }
 
-export function formatOutbound(rawText: string): string {
+export function formatOutbound(rawText: string, channel?: string): string {
   const text = stripInternalTags(rawText);
   if (!text) return '';
+  if (channel) {
+    return parseTextStyles(text, channel as ChannelType);
+  }
   return text;
 }
 
