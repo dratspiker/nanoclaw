@@ -66,11 +66,13 @@ if [ "$session_count" -gt "0" ]; then
     run_remote "docker stop nanoclaw >/dev/null 2>&1 || true; sudo sqlite3 ${DB_PATH} 'DELETE FROM sessions;'"
 fi
 
-# --- Sync group CLAUDE.md (host groups dir shadows repo copy) ---
-step "Syncing group CLAUDE.md"
-run_remote "cp ${REPO_DIR}/groups/main/CLAUDE.md ${NANOCLAW_DIR}/groups/main/CLAUDE.md 2>/dev/null" && \
-    printf "${GREEN}    Synced groups/main/CLAUDE.md${RESET}\n" || \
-    warn "No CLAUDE.md to sync"
+# --- Sync group config files (host groups dir shadows repo copy) ---
+step "Syncing group config files"
+for f in CLAUDE.md ADMIN.md; do
+    if run_remote "cp ${REPO_DIR}/groups/main/${f} ${NANOCLAW_DIR}/groups/main/${f} 2>/dev/null"; then
+        printf "${GREEN}    Synced groups/main/${f}${RESET}\n"
+    fi
+done
 
 # --- Rebuild agent container image (optional) ---
 if $REBUILD; then
