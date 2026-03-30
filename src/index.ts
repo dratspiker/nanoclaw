@@ -176,12 +176,16 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     const allowlistCfg = loadSenderAllowlist();
     // Check both global trigger (@Barry) and per-group trigger (@Data, etc.)
     const groupTriggerPattern = group.trigger
-      ? new RegExp(`^${group.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+      ? new RegExp(
+          `^${group.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+          'i',
+        )
       : null;
     const hasTrigger = missedMessages.some(
       (m) =>
         (TRIGGER_PATTERN.test(m.content.trim()) ||
-          (groupTriggerPattern && groupTriggerPattern.test(m.content.trim()))) &&
+          (groupTriggerPattern &&
+            groupTriggerPattern.test(m.content.trim()))) &&
         (m.is_from_me || isTriggerAllowed(chatJid, m.sender, allowlistCfg)),
     );
     if (!hasTrigger) return true;
@@ -428,9 +432,18 @@ async function startMessageLoop(): Promise<void> {
           // context when a trigger eventually arrives.
           if (needsTrigger) {
             const allowlistCfg = loadSenderAllowlist();
+            // Check both global trigger (@Barry) and per-group trigger (@Data, etc.)
+            const groupTriggerPattern = group.trigger
+              ? new RegExp(
+                  `^${group.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+                  'i',
+                )
+              : null;
             const hasTrigger = groupMessages.some(
               (m) =>
-                TRIGGER_PATTERN.test(m.content.trim()) &&
+                (TRIGGER_PATTERN.test(m.content.trim()) ||
+                  (groupTriggerPattern &&
+                    groupTriggerPattern.test(m.content.trim()))) &&
                 (m.is_from_me ||
                   isTriggerAllowed(chatJid, m.sender, allowlistCfg)),
             );
