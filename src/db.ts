@@ -338,16 +338,6 @@ export function getNewMessages(
   return { messages: rows, newTimestamp };
 }
 
-export function getMessageContentById(
-  id: string,
-  chatJid: string,
-): string | undefined {
-  const row = db
-    .prepare(`SELECT content FROM messages WHERE id = ? AND chat_jid = ?`)
-    .get(id, chatJid) as { content: string } | undefined;
-  return row?.content;
-}
-
 export function getMessagesSince(
   chatJid: string,
   sinceTimestamp: string,
