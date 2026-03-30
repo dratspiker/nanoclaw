@@ -4,7 +4,7 @@ import path from 'path';
 import { Api, Bot } from 'grammy';
 
 import { ASSISTANT_NAME, GROUPS_DIR, TRIGGER_PATTERN } from '../config.js';
-import { readEnvFile } from '../env.js';
+import { readEnvFile, readEnvFileByPrefix } from '../env.js';
 import { processImage } from '../image.js';
 import { logger } from '../logger.js';
 import {
@@ -54,24 +54,33 @@ async function sendTelegramMessage(
 export class TelegramChannel implements Channel {
   name = 'telegram';
 
-  private bot: Bot | null = null;
+  private defaultBot: Bot | null = null;
+  private defaultBotToken: string;
   private opts: TelegramChannelOpts;
-  private botToken: string;
+  // folder key (uppercase) -> { bot, token }
+  private botsByFolder: Map<string, { bot: Bot; token: string }> = new Map();
+  // jid -> folder key (uppercase), for routing outbound messages
+  private jidToBotFolder: Map<string, string> = new Map();
+  // Extra tokens: { FAMILY: "token...", WORK: "token..." }
+  private extraTokens: Record<string, string>;
 
-  constructor(botToken: string, opts: TelegramChannelOpts) {
-    this.botToken = botToken;
+  constructor(
+    defaultToken: string,
+    extraTokens: Record<string, string>,
+    opts: TelegramChannelOpts,
+  ) {
+    this.defaultBotToken = defaultToken;
+    this.extraTokens = extraTokens;
     this.opts = opts;
   }
 
-  async connect(): Promise<void> {
-    this.bot = new Bot(this.botToken, {
-      client: {
-        baseFetchConfig: { agent: https.globalAgent, compress: true },
-      },
-    });
-
+  /**
+   * Set up all message handlers on a Bot instance.
+   * Shared between the default bot and extra bots.
+   */
+  private setupBotHandlers(bot: Bot, botToken: string): void {
     // Command to get chat ID (useful for registration)
-    this.bot.command('chatid', (ctx) => {
+    bot.command('chatid', (ctx) => {
       const chatId = ctx.chat.id;
       const chatType = ctx.chat.type;
       const chatName =
@@ -86,14 +95,14 @@ export class TelegramChannel implements Channel {
     });
 
     // Command to check bot status
-    this.bot.command('ping', (ctx) => {
+    bot.command('ping', (ctx) => {
       ctx.reply(`${ASSISTANT_NAME} is online.`);
     });
 
     // --- Productivity commands (Issue #38) ---
 
     // Command to trigger personal vault sync
-    this.bot.command('sync', async (ctx) => {
+    bot.command('sync', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       if (!this.opts.registeredGroups()[chatJid]) {
         return ctx.reply(
@@ -117,7 +126,7 @@ export class TelegramChannel implements Channel {
     });
 
     // Command to get daily briefing
-    this.bot.command('briefing', async (ctx) => {
+    bot.command('briefing', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       if (!this.opts.registeredGroups()[chatJid]) {
         return ctx.reply('⚠️ Access denied.');
@@ -133,7 +142,7 @@ export class TelegramChannel implements Channel {
     });
 
     // Command for smart capture
-    this.bot.command('capture', async (ctx) => {
+    bot.command('capture', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       if (!this.opts.registeredGroups()[chatJid]) {
         return ctx.reply('⚠️ Access denied.');
@@ -157,7 +166,7 @@ export class TelegramChannel implements Channel {
     });
 
     // Command for homelab status check
-    this.bot.command('status', async (ctx) => {
+    bot.command('status', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       if (!this.opts.registeredGroups()[chatJid]) {
         return ctx.reply('⚠️ Access denied.');
@@ -173,7 +182,7 @@ export class TelegramChannel implements Channel {
     });
 
     // Command for energy-aware task suggestions
-    this.bot.command('energy', async (ctx) => {
+    bot.command('energy', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       if (!this.opts.registeredGroups()[chatJid]) {
         return ctx.reply('⚠️ Access denied.');
@@ -203,7 +212,7 @@ export class TelegramChannel implements Channel {
       'energy',
     ]);
 
-    this.bot.on('message:text', async (ctx) => {
+    bot.on('message:text', async (ctx) => {
       if (ctx.message.text.startsWith('/')) {
         const cmd = ctx.message.text.slice(1).split(/[\s@]/)[0].toLowerCase();
         if (TELEGRAM_BOT_COMMANDS.has(cmd)) return;
@@ -242,7 +251,10 @@ export class TelegramChannel implements Channel {
           return false;
         });
         if (isBotMentioned && !TRIGGER_PATTERN.test(content)) {
-          content = `@${ASSISTANT_NAME} ${content}`;
+          // Use the group's trigger pattern if available, otherwise fall back to ASSISTANT_NAME
+          const group = this.opts.registeredGroups()[chatJid];
+          const triggerName = group?.trigger?.replace(/^@/, '') || ASSISTANT_NAME;
+          content = `@${triggerName} ${content}`;
         }
       }
 
@@ -318,7 +330,7 @@ export class TelegramChannel implements Channel {
       });
     };
 
-    this.bot.on('message:photo', async (ctx) => {
+    bot.on('message:photo', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       const group = this.opts.registeredGroups()[chatJid];
       if (!group) return;
@@ -329,7 +341,7 @@ export class TelegramChannel implements Channel {
         const photos = ctx.message.photo;
         const largest = photos[photos.length - 1];
         const file = await ctx.api.getFile(largest.file_id);
-        const fileUrl = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
+        const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
 
         const response = await fetch(fileUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -357,10 +369,10 @@ export class TelegramChannel implements Channel {
         );
       }
     });
-    this.bot.on('message:video', (ctx) => storeNonText(ctx, '[Video]'));
-    this.bot.on('message:voice', (ctx) => storeNonText(ctx, '[Voice message]'));
-    this.bot.on('message:audio', (ctx) => storeNonText(ctx, '[Audio]'));
-    this.bot.on('message:document', async (ctx) => {
+    bot.on('message:video', (ctx) => storeNonText(ctx, '[Video]'));
+    bot.on('message:voice', (ctx) => storeNonText(ctx, '[Voice message]'));
+    bot.on('message:audio', (ctx) => storeNonText(ctx, '[Audio]'));
+    bot.on('message:document', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
       const group = this.opts.registeredGroups()[chatJid];
       const name = ctx.message.document?.file_name || 'file';
@@ -371,7 +383,7 @@ export class TelegramChannel implements Channel {
       try {
         const doc = ctx.message.document!;
         const file = await ctx.api.getFile(doc.file_id);
-        const fileUrl = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
+        const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
         const filename = `doc_${ctx.message.message_id}_${name}`;
 
         const docsDir = path.join(GROUPS_DIR, group.folder, 'documents');
@@ -394,38 +406,115 @@ export class TelegramChannel implements Channel {
         storeNonText(ctx, `[Document: ${name} (download failed)]${caption}`);
       }
     });
-    this.bot.on('message:sticker', (ctx) => {
+    bot.on('message:sticker', (ctx) => {
       const emoji = ctx.message.sticker?.emoji || '';
       storeNonText(ctx, `[Sticker ${emoji}]`);
     });
-    this.bot.on('message:location', (ctx) => storeNonText(ctx, '[Location]'));
-    this.bot.on('message:contact', (ctx) => storeNonText(ctx, '[Contact]'));
+    bot.on('message:location', (ctx) => storeNonText(ctx, '[Location]'));
+    bot.on('message:contact', (ctx) => storeNonText(ctx, '[Contact]'));
 
     // Handle errors gracefully
-    this.bot.catch((err) => {
+    bot.catch((err) => {
       logger.error({ err: err.message }, 'Telegram bot error');
     });
+  }
 
-    // Start polling — returns a Promise that resolves when started
+  private createBot(token: string): Bot {
+    return new Bot(token, {
+      client: {
+        baseFetchConfig: { agent: https.globalAgent, compress: true },
+      },
+    });
+  }
+
+  private startBot(bot: Bot, label: string): Promise<void> {
     return new Promise<void>((resolve) => {
-      this.bot!.start({
+      bot.start({
         onStart: (botInfo) => {
           logger.info(
-            { username: botInfo.username, id: botInfo.id },
+            { username: botInfo.username, id: botInfo.id, label },
             'Telegram bot connected',
           );
-          console.log(`\n  Telegram bot: @${botInfo.username}`);
-          console.log(
-            `  Send /chatid to the bot to get a chat's registration ID\n`,
-          );
+          console.log(`  Telegram bot (${label}): @${botInfo.username}`);
           resolve();
         },
       });
     });
   }
 
+  async connect(): Promise<void> {
+    // Create and set up default bot
+    this.defaultBot = this.createBot(this.defaultBotToken);
+    this.setupBotHandlers(this.defaultBot, this.defaultBotToken);
+
+    // Create extra bots for per-folder tokens
+    for (const [folderKey, token] of Object.entries(this.extraTokens)) {
+      const bot = this.createBot(token);
+      this.setupBotHandlers(bot, token);
+      this.botsByFolder.set(folderKey, { bot, token });
+    }
+
+    // Pre-populate JID -> folder mapping from registered groups
+    this.refreshJidMapping();
+
+    // Start all bots concurrently
+    const startPromises: Promise<void>[] = [
+      this.startBot(this.defaultBot, 'default'),
+    ];
+    for (const [folderKey, entry] of this.botsByFolder) {
+      startPromises.push(this.startBot(entry.bot, folderKey.toLowerCase()));
+    }
+
+    console.log('');
+    await Promise.all(startPromises);
+    console.log(
+      `  Send /chatid to any bot to get a chat's registration ID\n`,
+    );
+  }
+
+  /**
+   * Refresh the JID -> folder key mapping from current registered groups.
+   * Called at startup and lazily when a JID isn't found.
+   */
+  private refreshJidMapping(): void {
+    const groups = this.opts.registeredGroups();
+    for (const [jid, group] of Object.entries(groups)) {
+      const key = group.folder.toUpperCase();
+      if (this.botsByFolder.has(key)) {
+        this.jidToBotFolder.set(jid, key);
+      }
+    }
+  }
+
+  /**
+   * Get the Bot instance that should handle a given JID.
+   */
+  private getBotForJid(jid: string): Bot | null {
+    // Check cached mapping
+    const folder = this.jidToBotFolder.get(jid);
+    if (folder) {
+      const entry = this.botsByFolder.get(folder);
+      if (entry) return entry.bot;
+    }
+
+    // Lazy lookup for groups registered after startup
+    const groups = this.opts.registeredGroups();
+    const group = groups[jid];
+    if (group) {
+      const key = group.folder.toUpperCase();
+      const entry = this.botsByFolder.get(key);
+      if (entry) {
+        this.jidToBotFolder.set(jid, key);
+        return entry.bot;
+      }
+    }
+
+    return this.defaultBot;
+  }
+
   async sendMessage(jid: string, text: string): Promise<void> {
-    if (!this.bot) {
+    const bot = this.getBotForJid(jid);
+    if (!bot) {
       logger.warn('Telegram bot not initialized');
       return;
     }
@@ -436,11 +525,11 @@ export class TelegramChannel implements Channel {
       // Telegram has a 4096 character limit per message — split if needed
       const MAX_LENGTH = 4096;
       if (text.length <= MAX_LENGTH) {
-        await sendTelegramMessage(this.bot.api, numericId, text);
+        await sendTelegramMessage(bot.api, numericId, text);
       } else {
         for (let i = 0; i < text.length; i += MAX_LENGTH) {
           await sendTelegramMessage(
-            this.bot.api,
+            bot.api,
             numericId,
             text.slice(i, i + MAX_LENGTH),
           );
@@ -453,7 +542,7 @@ export class TelegramChannel implements Channel {
   }
 
   isConnected(): boolean {
-    return this.bot !== null;
+    return this.defaultBot !== null;
   }
 
   ownsJid(jid: string): boolean {
@@ -461,18 +550,31 @@ export class TelegramChannel implements Channel {
   }
 
   async disconnect(): Promise<void> {
-    if (this.bot) {
-      this.bot.stop();
-      this.bot = null;
-      logger.info('Telegram bot stopped');
+    for (const [folderKey, entry] of this.botsByFolder) {
+      try {
+        entry.bot.stop();
+        logger.info({ folder: folderKey }, 'Telegram extra bot stopped');
+      } catch {
+        // ignore stop errors during shutdown
+      }
+    }
+    this.botsByFolder.clear();
+    this.jidToBotFolder.clear();
+
+    if (this.defaultBot) {
+      this.defaultBot.stop();
+      this.defaultBot = null;
+      logger.info('Telegram default bot stopped');
     }
   }
 
   async setTyping(jid: string, isTyping: boolean): Promise<void> {
-    if (!this.bot || !isTyping) return;
+    if (!isTyping) return;
+    const bot = this.getBotForJid(jid);
+    if (!bot) return;
     try {
       const numericId = jid.replace(/^tg:/, '');
-      await this.bot.api.sendChatAction(numericId, 'typing');
+      await bot.api.sendChatAction(numericId, 'typing');
     } catch (err) {
       logger.debug({ jid, err }, 'Failed to send Telegram typing indicator');
     }
@@ -487,5 +589,23 @@ registerChannel('telegram', (opts: ChannelOpts) => {
     logger.warn('Telegram: TELEGRAM_BOT_TOKEN not set');
     return null;
   }
-  return new TelegramChannel(token, opts);
+
+  // Discover additional bot tokens: TELEGRAM_BOT_TOKEN_FAMILY, etc.
+  const allExtra = readEnvFileByPrefix('TELEGRAM_BOT_TOKEN_');
+  const extraTokens: Record<string, string> = {};
+  for (const [key, value] of Object.entries(allExtra)) {
+    const suffix = key.replace('TELEGRAM_BOT_TOKEN_', '');
+    if (suffix && value) {
+      extraTokens[suffix] = value;
+    }
+  }
+
+  if (Object.keys(extraTokens).length > 0) {
+    logger.info(
+      { folders: Object.keys(extraTokens) },
+      'Telegram: additional bot tokens found',
+    );
+  }
+
+  return new TelegramChannel(token, extraTokens, opts);
 });

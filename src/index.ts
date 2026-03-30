@@ -174,9 +174,14 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   // For non-main groups, check if trigger is required and present
   if (!isMainGroup && group.requiresTrigger !== false) {
     const allowlistCfg = loadSenderAllowlist();
+    // Check both global trigger (@Barry) and per-group trigger (@Data, etc.)
+    const groupTriggerPattern = group.trigger
+      ? new RegExp(`^${group.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+      : null;
     const hasTrigger = missedMessages.some(
       (m) =>
-        TRIGGER_PATTERN.test(m.content.trim()) &&
+        (TRIGGER_PATTERN.test(m.content.trim()) ||
+          (groupTriggerPattern && groupTriggerPattern.test(m.content.trim()))) &&
         (m.is_from_me || isTriggerAllowed(chatJid, m.sender, allowlistCfg)),
     );
     if (!hasTrigger) return true;

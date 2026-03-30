@@ -55,3 +55,44 @@ export function readEnvFile(keys: string[]): Record<string, string> {
 
   return result;
 }
+
+/**
+ * Scan .env file and process.env for all keys starting with the given prefix.
+ * Returns a Record<string, string> of matching key-value pairs.
+ */
+export function readEnvFileByPrefix(prefix: string): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  // Scan .env file
+  const envFile = path.join(process.cwd(), '.env');
+  try {
+    const content = fs.readFileSync(envFile, 'utf-8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      if (!key.startsWith(prefix)) continue;
+      let value = trimmed.slice(eqIdx + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (value) result[key] = value;
+    }
+  } catch {
+    // .env not found — fall through to process.env
+  }
+
+  // Also scan process.env for Docker/compose deployments
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith(prefix) && !result[key] && process.env[key]) {
+      result[key] = process.env[key]!;
+    }
+  }
+
+  return result;
+}

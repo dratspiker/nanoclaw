@@ -211,7 +211,7 @@ describe('TelegramChannel', () => {
   describe('connection lifecycle', () => {
     it('resolves connect() when bot starts', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
 
       await channel.connect();
 
@@ -220,7 +220,7 @@ describe('TelegramChannel', () => {
 
     it('registers command and message handlers on connect', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
 
       await channel.connect();
 
@@ -239,7 +239,7 @@ describe('TelegramChannel', () => {
 
     it('registers error handler on connect', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
 
       await channel.connect();
 
@@ -248,7 +248,7 @@ describe('TelegramChannel', () => {
 
     it('disconnects cleanly', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
 
       await channel.connect();
       expect(channel.isConnected()).toBe(true);
@@ -259,7 +259,7 @@ describe('TelegramChannel', () => {
 
     it('isConnected() returns false before connect', () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
 
       expect(channel.isConnected()).toBe(false);
     });
@@ -270,7 +270,7 @@ describe('TelegramChannel', () => {
   describe('text message handling', () => {
     it('delivers message for registered group', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({ text: 'Hello everyone' });
@@ -298,7 +298,7 @@ describe('TelegramChannel', () => {
 
     it('only emits metadata for unregistered chats', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({ chatId: 999999, text: 'Unknown chat' });
@@ -316,7 +316,7 @@ describe('TelegramChannel', () => {
 
     it('skips bot commands (/chatid, /ping) but passes other / messages through', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       // Bot commands should be skipped
@@ -341,7 +341,7 @@ describe('TelegramChannel', () => {
 
     it('extracts sender name from first_name', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({ text: 'Hi', firstName: 'Bob' });
@@ -355,7 +355,7 @@ describe('TelegramChannel', () => {
 
     it('falls back to username when first_name missing', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({ text: 'Hi' });
@@ -370,7 +370,7 @@ describe('TelegramChannel', () => {
 
     it('falls back to user ID when name and username missing', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({ text: 'Hi', fromId: 42 });
@@ -395,7 +395,7 @@ describe('TelegramChannel', () => {
           },
         })),
       });
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({
@@ -416,7 +416,7 @@ describe('TelegramChannel', () => {
 
     it('uses chat title as name for group chats', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({
@@ -437,7 +437,7 @@ describe('TelegramChannel', () => {
 
     it('converts message.date to ISO timestamp', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const unixTime = 1704067200; // 2024-01-01T00:00:00.000Z
@@ -458,7 +458,7 @@ describe('TelegramChannel', () => {
   describe('@mention translation', () => {
     it('translates @bot_username mention to trigger format', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({
@@ -477,7 +477,7 @@ describe('TelegramChannel', () => {
 
     it('does not translate if message already matches trigger', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({
@@ -497,7 +497,7 @@ describe('TelegramChannel', () => {
 
     it('does not translate mentions of other bots', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({
@@ -516,7 +516,7 @@ describe('TelegramChannel', () => {
 
     it('handles mention in middle of message', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({
@@ -536,7 +536,7 @@ describe('TelegramChannel', () => {
 
     it('handles message with no entities', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({ text: 'plain message' });
@@ -552,7 +552,7 @@ describe('TelegramChannel', () => {
 
     it('ignores non-mention entities', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createTextCtx({
@@ -575,7 +575,7 @@ describe('TelegramChannel', () => {
   describe('non-text messages', () => {
     it('stores photo with placeholder', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({});
@@ -589,7 +589,7 @@ describe('TelegramChannel', () => {
 
     it('stores photo with caption', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({ caption: 'Look at this' });
@@ -605,7 +605,7 @@ describe('TelegramChannel', () => {
 
     it('stores video with placeholder', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({});
@@ -619,7 +619,7 @@ describe('TelegramChannel', () => {
 
     it('stores voice message with placeholder', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({});
@@ -633,7 +633,7 @@ describe('TelegramChannel', () => {
 
     it('stores audio with placeholder', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({});
@@ -647,7 +647,7 @@ describe('TelegramChannel', () => {
 
     it('stores document with filename', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({
@@ -665,7 +665,7 @@ describe('TelegramChannel', () => {
 
     it('stores document with fallback name when filename missing', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({ extra: { document: {} } });
@@ -681,7 +681,7 @@ describe('TelegramChannel', () => {
 
     it('stores sticker with emoji', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({
@@ -697,7 +697,7 @@ describe('TelegramChannel', () => {
 
     it('stores location with placeholder', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({});
@@ -711,7 +711,7 @@ describe('TelegramChannel', () => {
 
     it('stores contact with placeholder', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({});
@@ -725,7 +725,7 @@ describe('TelegramChannel', () => {
 
     it('ignores non-text messages from unregistered chats', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const ctx = createMediaCtx({ chatId: 999999 });
@@ -740,7 +740,7 @@ describe('TelegramChannel', () => {
   describe('sendMessage', () => {
     it('sends message via bot API', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       await channel.sendMessage('tg:100200300', 'Hello');
@@ -754,7 +754,7 @@ describe('TelegramChannel', () => {
 
     it('strips tg: prefix from JID', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       await channel.sendMessage('tg:-1001234567890', 'Group message');
@@ -768,7 +768,7 @@ describe('TelegramChannel', () => {
 
     it('splits messages exceeding 4096 characters', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const longText = 'x'.repeat(5000);
@@ -791,7 +791,7 @@ describe('TelegramChannel', () => {
 
     it('sends exactly one message at 4096 characters', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const exactText = 'y'.repeat(4096);
@@ -802,7 +802,7 @@ describe('TelegramChannel', () => {
 
     it('handles send failure gracefully', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       currentBot().api.sendMessage.mockRejectedValueOnce(
@@ -817,7 +817,7 @@ describe('TelegramChannel', () => {
 
     it('does nothing when bot is not initialized', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
 
       // Don't connect — bot is null
       await channel.sendMessage('tg:100200300', 'No bot');
@@ -830,27 +830,27 @@ describe('TelegramChannel', () => {
 
   describe('ownsJid', () => {
     it('owns tg: JIDs', () => {
-      const channel = new TelegramChannel('test-token', createTestOpts());
+      const channel = new TelegramChannel('test-token', {}, createTestOpts());
       expect(channel.ownsJid('tg:123456')).toBe(true);
     });
 
     it('owns tg: JIDs with negative IDs (groups)', () => {
-      const channel = new TelegramChannel('test-token', createTestOpts());
+      const channel = new TelegramChannel('test-token', {}, createTestOpts());
       expect(channel.ownsJid('tg:-1001234567890')).toBe(true);
     });
 
     it('does not own WhatsApp group JIDs', () => {
-      const channel = new TelegramChannel('test-token', createTestOpts());
+      const channel = new TelegramChannel('test-token', {}, createTestOpts());
       expect(channel.ownsJid('12345@g.us')).toBe(false);
     });
 
     it('does not own WhatsApp DM JIDs', () => {
-      const channel = new TelegramChannel('test-token', createTestOpts());
+      const channel = new TelegramChannel('test-token', {}, createTestOpts());
       expect(channel.ownsJid('12345@s.whatsapp.net')).toBe(false);
     });
 
     it('does not own unknown JID formats', () => {
-      const channel = new TelegramChannel('test-token', createTestOpts());
+      const channel = new TelegramChannel('test-token', {}, createTestOpts());
       expect(channel.ownsJid('random-string')).toBe(false);
     });
   });
@@ -860,7 +860,7 @@ describe('TelegramChannel', () => {
   describe('setTyping', () => {
     it('sends typing action when isTyping is true', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       await channel.setTyping('tg:100200300', true);
@@ -873,7 +873,7 @@ describe('TelegramChannel', () => {
 
     it('does nothing when isTyping is false', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       await channel.setTyping('tg:100200300', false);
@@ -883,7 +883,7 @@ describe('TelegramChannel', () => {
 
     it('does nothing when bot is not initialized', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
 
       // Don't connect
       await channel.setTyping('tg:100200300', true);
@@ -893,7 +893,7 @@ describe('TelegramChannel', () => {
 
     it('handles typing indicator failure gracefully', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       currentBot().api.sendChatAction.mockRejectedValueOnce(
@@ -911,7 +911,7 @@ describe('TelegramChannel', () => {
   describe('bot commands', () => {
     it('/chatid replies with chat ID and metadata', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('chatid')!;
@@ -931,7 +931,7 @@ describe('TelegramChannel', () => {
 
     it('/chatid shows chat type', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('chatid')!;
@@ -951,7 +951,7 @@ describe('TelegramChannel', () => {
 
     it('/ping replies with bot status', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('ping')!;
@@ -964,7 +964,7 @@ describe('TelegramChannel', () => {
 
     it('/sync triggers sync and replies with output', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('sync')!;
@@ -985,7 +985,7 @@ describe('TelegramChannel', () => {
 
     it('/sync denies access for unregistered groups', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('sync')!;
@@ -1003,7 +1003,7 @@ describe('TelegramChannel', () => {
 
     it('/status replies with status output', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('status')!;
@@ -1021,7 +1021,7 @@ describe('TelegramChannel', () => {
 
     it('/briefing replies with briefing output', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('briefing')!;
@@ -1039,7 +1039,7 @@ describe('TelegramChannel', () => {
 
     it('/capture routes item and replies with success', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('capture')!;
@@ -1060,7 +1060,7 @@ describe('TelegramChannel', () => {
 
     it('/capture requires text', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('capture')!;
@@ -1080,7 +1080,7 @@ describe('TelegramChannel', () => {
 
     it('/energy replies with energy tasks', async () => {
       const opts = createTestOpts();
-      const channel = new TelegramChannel('test-token', opts);
+      const channel = new TelegramChannel('test-token', {}, opts);
       await channel.connect();
 
       const handler = currentBot().commandHandlers.get('energy')!;
@@ -1105,7 +1105,7 @@ describe('TelegramChannel', () => {
 
   describe('channel properties', () => {
     it('has name "telegram"', () => {
-      const channel = new TelegramChannel('test-token', createTestOpts());
+      const channel = new TelegramChannel('test-token', {}, createTestOpts());
       expect(channel.name).toBe('telegram');
     });
   });
