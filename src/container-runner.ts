@@ -299,6 +299,8 @@ function buildContainerArgs(
     'TODOIST_API_TOKEN_PERSONAL',
     'GH_TOKEN',
     'FORGEJO_TOKEN',
+    'HA_TOKEN',
+    'SEERR_API_KEY',
   ];
   for (const key of FORWARDED_ENV) {
     if (process.env[key]) {
