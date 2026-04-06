@@ -253,7 +253,8 @@ export class TelegramChannel implements Channel {
         if (isBotMentioned && !TRIGGER_PATTERN.test(content)) {
           // Use the group's trigger pattern if available, otherwise fall back to ASSISTANT_NAME
           const group = this.opts.registeredGroups()[chatJid];
-          const triggerName = group?.trigger?.replace(/^@/, '') || ASSISTANT_NAME;
+          const triggerName =
+            group?.trigger?.replace(/^@/, '') || ASSISTANT_NAME;
           content = `@${triggerName} ${content}`;
         }
       }
@@ -467,9 +468,7 @@ export class TelegramChannel implements Channel {
 
     console.log('');
     await Promise.all(startPromises);
-    console.log(
-      `  Send /chatid to any bot to get a chat's registration ID\n`,
-    );
+    console.log(`  Send /chatid to any bot to get a chat's registration ID\n`);
   }
 
   /**
