@@ -491,7 +491,13 @@ export class TelegramChannel implements Channel {
             const delayMs = Math.min(1000 * Math.pow(2, attempt), 60_000);
             attempt += 1;
             logger.error(
-              { label, err: (err as Error)?.message, attempt, delayMs, ranForMs: ranFor },
+              {
+                label,
+                err: (err as Error)?.message,
+                attempt,
+                delayMs,
+                ranForMs: ranFor,
+              },
               'Telegram bot.start() failed, scheduling restart',
             );
             setTimeout(launch, delayMs);
