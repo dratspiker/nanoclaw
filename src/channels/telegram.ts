@@ -33,6 +33,20 @@ export interface TelegramChannelOpts {
  * Claude's output naturally matches Telegram's Markdown v1 format:
  *   *bold*, _italic_, `code`, ```code blocks```, [links](url)
  */
+// Liveness signal for the Docker healthcheck. The grammy poll loop is
+// otherwise invisible to the container — `pgrep node` reports healthy even
+// when getUpdates has died. We touch this file on every received update and
+// after each successful bot.start(); the healthcheck fails if it goes stale.
+// See homebase#358.
+const POLL_LIVENESS_FILE = '/app/data/telegram-last-poll';
+function touchPollLiveness(): void {
+  try {
+    fs.writeFileSync(POLL_LIVENESS_FILE, String(Date.now()));
+  } catch {
+    // best-effort; never crash the bot over a liveness write failure
+  }
+}
+
 async function sendTelegramMessage(
   api: { sendMessage: Api['sendMessage'] },
   chatId: string | number,
@@ -79,6 +93,20 @@ export class TelegramChannel implements Channel {
    * Shared between the default bot and extra bots.
    */
   private setupBotHandlers(bot: Bot, botToken: string): void {
+    // Liveness: every received update proves getUpdates is alive. See homebase#358.
+    bot.use(async (_ctx, next) => {
+      touchPollLiveness();
+      await next();
+    });
+
+    // Liveness: also touch on every poll attempt (idle long-poll returns no
+    // updates but still proves the loop is running). API transformer wraps
+    // every Telegram API call; we filter for getUpdates only.
+    bot.api.config.use(async (prev, method, payload, signal) => {
+      if (method === 'getUpdates') touchPollLiveness();
+      return prev(method, payload, signal);
+    });
+
     // Command to get chat ID (useful for registration)
     bot.command('chatid', (ctx) => {
       const chatId = ctx.chat.id;
@@ -428,18 +456,49 @@ export class TelegramChannel implements Channel {
     });
   }
 
+  // Self-restarting bot.start() with exponential backoff. The grammy poll loop
+  // dies on unhandled rejections (e.g. transient 409 Conflict from a duplicate
+  // getUpdates caller) and never recovers on its own. See homebase#359.
   private startBot(bot: Bot, label: string): Promise<void> {
     return new Promise<void>((resolve) => {
-      bot.start({
-        onStart: (botInfo) => {
-          logger.info(
-            { username: botInfo.username, id: botInfo.id, label },
-            'Telegram bot connected',
-          );
-          console.log(`  Telegram bot (${label}): @${botInfo.username}`);
-          resolve();
-        },
-      });
+      let attempt = 0;
+      let connectedOnce = false;
+
+      const launch = (): void => {
+        const startedAt = Date.now();
+        bot
+          .start({
+            onStart: (botInfo) => {
+              attempt = 0; // reset backoff on each successful (re)start
+              touchPollLiveness();
+              logger.info(
+                { username: botInfo.username, id: botInfo.id, label },
+                'Telegram bot connected',
+              );
+              if (!connectedOnce) {
+                console.log(`  Telegram bot (${label}): @${botInfo.username}`);
+                connectedOnce = true;
+                resolve();
+              }
+            },
+          })
+          .catch((err) => {
+            // If the loop ran healthily for >5min before dying, treat it as a
+            // fresh failure rather than continuing the previous backoff series.
+            const ranFor = Date.now() - startedAt;
+            if (ranFor > 5 * 60 * 1000) attempt = 0;
+
+            const delayMs = Math.min(1000 * Math.pow(2, attempt), 60_000);
+            attempt += 1;
+            logger.error(
+              { label, err: (err as Error)?.message, attempt, delayMs, ranForMs: ranFor },
+              'Telegram bot.start() failed, scheduling restart',
+            );
+            setTimeout(launch, delayMs);
+          });
+      };
+
+      launch();
     });
   }
 

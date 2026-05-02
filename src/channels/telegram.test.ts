@@ -59,11 +59,16 @@ vi.mock('grammy', () => ({
     api = {
       sendMessage: vi.fn().mockResolvedValue(undefined),
       sendChatAction: vi.fn().mockResolvedValue(undefined),
+      config: { use: vi.fn() },
     };
 
     constructor(token: string) {
       this.token = token;
       botRef.current = this;
+    }
+
+    use(_handler: Handler) {
+      // no-op for tests; production code uses this for liveness signal
     }
 
     command(name: string, handler: Handler) {
@@ -80,8 +85,12 @@ vi.mock('grammy', () => ({
       this.errorHandler = handler;
     }
 
-    start(opts: { onStart: (botInfo: any) => void }) {
+    start(opts: { onStart: (botInfo: any) => void }): Promise<void> {
       opts.onStart({ username: 'andy_ai_bot', id: 12345 });
+      // Return a never-resolving promise — the real bot.start() runs forever
+      // until error/stop. Resolving here would let our restart-on-catch logic
+      // fire spuriously in tests.
+      return new Promise<void>(() => {});
     }
 
     stop() {}
