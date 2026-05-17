@@ -105,3 +105,7 @@ Current deployment is pinned to fork commit `d64cee6` (2026-03-29). Update `repo
 ## Container Build Cache
 
 The container buildkit caches the build context aggressively. `--no-cache` alone does NOT invalidate COPY steps — the builder's volume retains stale files. To force a truly clean rebuild, prune the builder then re-run `./container/build.sh`.
+
+## Scheduled-Task Prechecks (lucille4 deployment)
+
+Recurring scheduled tasks that "check if X needs attention" must NOT do that check inside the agent prompt — every check fires a full agent container even when there's no work, and that burns the API cap fast. Instead, gate the agent behind a cheap host-side bash precheck that drops an IPC task only when work exists. See `~/git/homelab-lucille4/nanoclaw/prechecks/README.md` for the deployed pattern and the incident that prompted it.
