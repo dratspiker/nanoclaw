@@ -6,6 +6,8 @@
 
 FROM nanoclaw-agent-base:latest
 
+LABEL nanoclaw.protected=true
+
 # Create app directory
 WORKDIR /app
 

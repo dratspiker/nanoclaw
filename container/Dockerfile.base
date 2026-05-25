@@ -7,6 +7,8 @@
 
 FROM node:22-slim
 
+LABEL nanoclaw.protected=true
+
 # Install system dependencies for Chromium + PDF tools
 RUN apt-get update && apt-get install -y \
     chromium \
