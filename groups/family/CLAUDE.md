@@ -74,23 +74,37 @@ curl -sL -H "Authorization: token $FORGEJO_TOKEN" \
 | `priority: high` | 8 | Urgent or time-sensitive |
 | `priority: normal` | 9 | Standard priority |
 
+#### Verifying Label IDs
+
+The IDs above are a snapshot. If a label is recreated, its ID changes silently and you'll mislabel issues. Two safeguards:
+
+1. **At session start (optional but cheap):** verify the IDs match by querying:
+   ```bash
+   curl -sL -H "Authorization: token $FORGEJO_TOKEN" \
+     "https://git.dratspiker.com/api/v1/repos/family/speicher-family/labels" \
+   | jq -r '.[] | "\(.id) \(.name)"'
+   ```
+2. **On 422 from a create call**, re-fetch the labels (same curl above) and retry with the fresh ID. Don't silently keep going with the stale ID — that's how mislabeled issues pile up.
+
 ### Home Assistant
 
-HA is accessible at `http://192.168.1.2:8123`. Auth via Bearer token.
+HA is accessible at `https://hass.speicher.family` (Tailscale + LAN only — same host as the legacy `http://192.168.1.2:8123` it replaces). Auth via Bearer token.
+
+Entity table below was last audited 2026-05-25 against live HA — if you call `/api/states/<entity>` and get 404, that entity has drifted; fall back to `GET /api/states` and search for a replacement before guessing.
 
 ```bash
 # Get entity state
 curl -s -H "Authorization: Bearer $HA_TOKEN" \
-  "http://192.168.1.2:8123/api/states/ENTITY_ID"
+  "https://hass.speicher.family/api/states/ENTITY_ID"
 
 # Get all states (large response -- prefer specific entity queries)
 curl -s -H "Authorization: Bearer $HA_TOKEN" \
-  "http://192.168.1.2:8123/api/states"
+  "https://hass.speicher.family/api/states"
 
 # Call a service (e.g., turn on a scene)
 curl -s -X POST -H "Authorization: Bearer $HA_TOKEN" \
   -H "Content-Type: application/json" \
-  "http://192.168.1.2:8123/api/services/scene/turn_on" \
+  "https://hass.speicher.family/api/services/scene/turn_on" \
   -d '{"entity_id": "scene.chill"}'
 ```
 
@@ -157,12 +171,6 @@ curl -s -X POST -H "Authorization: Bearer $HA_TOKEN" \
 | `switch.coffee_bar_power_strip_coffee_grinder` | Coffee grinder |
 | `switch.coffee_bar_power_strip_nespresso` | Keurig |
 
-**3D Printer (Bambu P1S):**
-| Entity | Description |
-|--------|-------------|
-| `sensor.p1s_01p09c4c1001325_nozzle_temperature` | Nozzle temp |
-| `sensor.p1s_01p09c4c1001325_bed_temperature` | Bed temp |
-
 **Robots:**
 | Entity | Description |
 |--------|-------------|
@@ -171,39 +179,39 @@ curl -s -X POST -H "Authorization: Bearer $HA_TOKEN" \
 
 ### Seerr (Media Requests)
 
-Seerr manages movie/TV show requests at `http://100.101.238.56:5056`.
+Seerr manages movie/TV show requests at `https://seerr.dratspiker.com`.
 
 ```bash
 # List recent requests
 curl -s -H "X-Api-Key: $SEERR_API_KEY" \
-  "http://100.101.238.56:5056/api/v1/request?take=10&sort=added"
+  "https://seerr.dratspiker.com/api/v1/request?take=10&sort=added"
 
 # Get specific request
 curl -s -H "X-Api-Key: $SEERR_API_KEY" \
-  "http://100.101.238.56:5056/api/v1/request/REQUEST_ID"
+  "https://seerr.dratspiker.com/api/v1/request/REQUEST_ID"
 
 # Search for media
 curl -s -H "X-Api-Key: $SEERR_API_KEY" \
-  "http://100.101.238.56:5056/api/v1/search?query=SEARCH_TERM&page=1"
+  "https://seerr.dratspiker.com/api/v1/search?query=SEARCH_TERM&page=1"
 
 # Get media details (movie)
 curl -s -H "X-Api-Key: $SEERR_API_KEY" \
-  "http://100.101.238.56:5056/api/v1/movie/TMDB_ID"
+  "https://seerr.dratspiker.com/api/v1/movie/TMDB_ID"
 
 # Get media details (TV)
 curl -s -H "X-Api-Key: $SEERR_API_KEY" \
-  "http://100.101.238.56:5056/api/v1/tv/TMDB_ID"
+  "https://seerr.dratspiker.com/api/v1/tv/TMDB_ID"
 
 # Request a movie
 curl -s -X POST -H "X-Api-Key: $SEERR_API_KEY" \
   -H "Content-Type: application/json" \
-  "http://100.101.238.56:5056/api/v1/request" \
+  "https://seerr.dratspiker.com/api/v1/request" \
   -d '{"mediaType": "movie", "mediaId": TMDB_ID}'
 
 # Request a TV show
 curl -s -X POST -H "X-Api-Key: $SEERR_API_KEY" \
   -H "Content-Type: application/json" \
-  "http://100.101.238.56:5056/api/v1/request" \
+  "https://seerr.dratspiker.com/api/v1/request" \
   -d '{"mediaType": "tv", "mediaId": TMDB_ID, "seasons": "all"}'
 ```
 
@@ -350,8 +358,9 @@ Answer questions about the house using the Home Assistant API. This is a **read-
 - **"Is Violet home?"** -- Check `person.violet` and `device_tracker.violets_iphone`
 - **"What's playing on the speakers?"** -- Check `media_player.*` entities
 - **"Is the vacuum running?"** -- Check robot vacuum entities
-- **"Is the 3D printer running?"** -- Check P1S nozzle/bed temps (non-zero target = printing)
 - **"Is the coffee bar on?"** -- Check `switch.coffee_bar_power_strip`
+
+(The Bambu P1S integration is not currently in HA, so 3D-printer status queries can't be answered directly — say so honestly and offer to file an issue if Matt wants the integration restored.)
 
 ### Response style:
 

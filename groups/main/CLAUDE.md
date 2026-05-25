@@ -91,6 +91,43 @@ sqlite3 /workspace/group/memory.db "INSERT OR REPLACE INTO memory (key, category
 
 The `conversations/` folder also contains searchable history of past conversations. Use this for detailed recall of specific past interactions when the memory DB doesn't have what you need.
 
+### Matt's persistent cross-host memory
+
+Matt also has a separate persistent memory store that lives outside your sandbox — `mcp-memory-service` at memory.dratspiker.com, accessed via `mcp__memory-mcp__*` tools when those are wired up to your environment. It holds facts about his hosts, services, family, preferences, and gotchas accumulated across all his Claude sessions (lucille5, gob, etc.). If you're asked something like "what do you remember about X" or "have we talked about Y before," and your own `/workspace/group/memory.db` doesn't have it, that's the next place to check rather than asking Matt to repeat himself. Treat it as read-mostly — write your own observations to your local DB, not into Matt's memory store.
+
+## Filing Homebase Issues
+
+When Matt asks you to file an issue in homebase (`dratspiker/homebase` on GitHub) via `gh issue create`, use the issue body template — bodies are living state, comments are the log:
+
+```markdown
+## Current State
+What's true right now. Refresh this block before adding update comments.
+
+## Open Decisions
+- Trade-offs Matt needs to weigh in on, with Lean: X if you have a recommendation.
+
+## Next Action
+1. Numbered, literal commands or URLs.
+2. Each step executable as-written.
+
+Success criteria: how to know it's done.
+```
+
+Default label: `actionable` (this label drives Matt's `/session-start` surface and Todoist sync — only apply when there's clear scope and a concrete next step). Add tier (`tier:foundational/troubleshooting/maintenance/improvement`) and effort (`quick-win`, `medium-effort`, `large-effort`) if obvious. If a decision is unresolved or the issue depends on physical/browser/calls action, omit `actionable` and tag `requires:physical` / `requires:browser` / `requires:calls` so it lands in the right bucket.
+
+Don't file fire-and-forget — write the body as if Matt will pick it up cold weeks from now.
+
+## Work vs Personal Routing
+
+Matt has two issue-tracking surfaces and they don't mix:
+
+- **Personal / homelab / family** → `dratspiker/homebase` on GitHub (the `gh` CLI). This is what you should default to.
+- **Work** → `dratspiker/work-notes` and `dratspiker/work-shared` on Forgejo at `git.dratspiker.com` (use the `tea` CLI or curl with `FORGEJO_TOKEN`). Anything ByteDance/TikTok-related, work meetings, OKRs, work-side tooling.
+
+Hard boundary: **never put work content in homebase, never put personal content in the Forgejo work-* repos.** Different audiences, different data-handling expectations. If Matt sends you something ambiguous, ask which side it belongs on rather than guessing.
+
+Service-reachability note: most `*.dratspiker.com` services (paperless, karakeep, etc.) are Tailscale + LAN only by default. If Matt asks you to share a service link with someone outside the home network, flag it — it won't work for them. The lone exception is `rssbrew.dratspiker.com/feeds/*` (public-readable for Readwise Reader). `netbox.speicher.family` is the canonical service inventory if you ever need to look up "what runs where" rather than guessing from older notes.
+
 ## Telegram Formatting
 
 Use Telegram-compatible markdown:
